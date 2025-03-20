@@ -1,0 +1,12 @@
+# ninja log v6
+23	149	7641917941880589	CMakeFiles/main.dir/main.c.obj	f7983f2583dc7cc0
+170	277	7642014418357686	main.exe	a420406955aa5805
+24	168	7642011696432939	CMakeFiles/main.dir/src/render.c.obj	d03fa56e5e50bf4
+22	144	7642012439398973	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
+23	170	7642014416884566	CMakeFiles/main.dir/src/worldsim.c.obj	a863477759a7c836
+30	197	7642005250280351	CMakeFiles/main.dir/src/debug/rdebug.c.obj	f251ef1dd432fada
+32	213	7642005250305131	CMakeFiles/main.dir/src/debug/memtrack.c.obj	d53552fff780ad25
+25	155	7642014686178755	CMakeFiles/main.dir/src/render.c.obj	d03fa56e5e50bf4
+22	156	7642014686148997	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
+27	171	7642014686203569	CMakeFiles/main.dir/src/worldsim.c.obj	a863477759a7c836
+171	279	7642014687647239	main.exe	a420406955aa5805
