@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -90,7 +91,7 @@ void initWorld(void)
 
     g_wSpriteIdx = 0;
     g_wPipesIdx = 0;
-    g_wScrollDistance = WORLD_STD_SCROLL_DISTANCE;
+    g_wScrollDistance = WORLD_STD_SCROLL_V;
 
     (void) addSprite(SPRITE_BIRD, 64, 48, WORLD_STD_BIRD_XPOS, WORLD_STD_BIRD_YPOS);
 
@@ -120,15 +121,12 @@ u32 updateWorld(u64 dt)
 
     rAssert(bird);
 
-    if (++scrollTimer >= WORLD_STD_SCROLL_SPEED) {
-        scrollScreen();
-        scrollTimer = 0;
-        score += 100;
+    scrollScreen(g_wScrollDistance * ((f32) dt / 1000));
 
-        if (++speedupTimer >= WORLD_STD_SPEEDUP_INTERVAL) {
-            g_wScrollDistance -= 0.1f;
-            speedupTimer = 0;
-        }
+    if ((speedupTimer += dt) >= WORLD_STD_SPEEDUP_INTERVAL) {
+        g_wScrollDistance -= 5.0f;
+        score += 100;
+        speedupTimer = 0;
     }
 
     handleBirdVerticalSpeed(bird, dt, g_wUpdraft);
@@ -138,28 +136,27 @@ u32 updateWorld(u64 dt)
     if (checkCollision(bird))
         return score;
 
-    renderClouds();
+    renderClouds(dt);
     renderPipes();
     renderBird(bird);
-
-    setColor(COLOR_BLACK);
-    SDL_RenderDebugTextFormat(g_renderer, 23.0f, 23.0f, "Score: %4ld", score);
+    renderStrColorFmt(23, 23, 0.25f, COLOR_BLACK, "Score: %5ld", score);
+    renderStrColorFmt(1070, 23, 0.25f, COLOR_BLACK, "FPS: %.2f", (f32) 1000 / dt);
 
     return GAME_CONTINUE;
 }
 
-void renderClouds(void)
+void renderClouds(u64 dt)
 {
-    static i32 xpos[3] = {100, 560, 1000};
+    static f32 xpos[3] = {100, 560, 1000};
 
     for (u8 i = 0; i < 3; i++) {
-        if (--xpos[i] < -192)
-            xpos[i] = WINDOW_WIDTH;
+        if ((xpos[i] -= ((f32) dt / 7)) < -192.0f)
+            xpos[i] = (f32) WINDOW_WIDTH;
     }
 
-    renderTexture(xpos[0], 160, 3, TEXTURE_CLOUD);
-    renderTextureFlip(xpos[1], 110, 3, 0, 1, TEXTURE_CLOUD);
-    renderTexture(xpos[2], 170, 3, TEXTURE_CLOUD);
+    renderTexture(roundf(xpos[0]), 160, 3, TEXTURE_CLOUD);
+    renderTextureFlip(roundf(xpos[1]), 110, 3, 0, 1, TEXTURE_CLOUD);
+    renderTexture(roundf(xpos[2]), 170, 3, TEXTURE_CLOUD);
 }
 
 void renderPipes(void)
@@ -175,9 +172,9 @@ void renderPipes(void)
             continue;
 
         if (tmp->ypos < WINDOW_HEIGHT / 2)
-            renderTextureFlip(tmp->xpos, tmp->ypos - tmp->height, 4, 1, 0, TEXTURE_PIPE);
+            renderTextureFlip(roundf(tmp->xpos), roundf(tmp->ypos - tmp->height), 4, 1, 0, TEXTURE_PIPE);
         else
-            renderTexture(tmp->xpos, tmp->ypos, 4, TEXTURE_PIPE);
+            renderTexture(roundf(tmp->xpos), roundf(tmp->ypos), 4, TEXTURE_PIPE);
 
         if (g_wShowHitboxes)
             renderHitbox(tmp->xpos, tmp->ypos, tmp->width, tmp->height);
@@ -189,7 +186,7 @@ void renderBird(sprite_t* bird)
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
 
-    renderTexture(bird->xpos, bird->ypos, 4, TEXTURE_BIRD);
+    renderTexture(roundf(bird->xpos), roundf(bird->ypos), 4, TEXTURE_BIRD);
 
     if (g_wShowHitboxes)
         renderHitbox(bird->xpos, bird->ypos, bird->width, bird->height);
@@ -205,7 +202,7 @@ sprite_t* getBird(void)
     return NULL;
 }
 
-void scrollScreen(void)
+void scrollScreen(f32 dx)
 {
     pipepair_t* tmp;
 
@@ -218,8 +215,8 @@ void scrollScreen(void)
         if (tmp->top->xpos < -210.0f)
             randomizePair(tmp, 1);
 
-        moveSprite(tmp->top, g_wScrollDistance, 0.0f);
-        moveSprite(tmp->bot, g_wScrollDistance, 0.0f);
+        moveSprite(tmp->top, dx, 0.0f);
+        moveSprite(tmp->bot, dx, 0.0f);
     }
 }
 
@@ -234,7 +231,7 @@ void randomizePair(pipepair_t* pair, bool resetXPos)
         pair->bot->xpos = WINDOW_WIDTH + 1.0f;
     }
 
-    f32 gap = randRange(150, 250);
+    f32 gap = randRange(180, 280);
 
     pair->bot->ypos = randRange(WINDOW_HEIGHT / 2, WINDOW_HEIGHT - 70);
     pair->top->ypos = pair->bot->ypos - pair->top->height - gap;
@@ -288,11 +285,10 @@ void handleBirdVerticalSpeed(sprite_t* bird, u64 dt, bool updraft)
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
 
-    if (dy < 0.0f)
-        dy *= WORLD_STD_UPDRAFT_DAMPING;
-
     if (updraft)
         dy = WORLD_STD_UPDRAFT_V;
+    else if (dy < 0.0f)
+        dy += 3 * WORLD_STD_GRAVITY_DV * (f32) dt / 1000;
     else
         dy += WORLD_STD_GRAVITY_DV * (f32) dt / 1000;
 

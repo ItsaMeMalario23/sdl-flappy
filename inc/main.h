@@ -8,7 +8,8 @@
 #define WINDOW_WIDTH    1280
 #define WINDOW_HEIGHT   720
 
-#define FIXED_FRAMTIME  7
+#define FIXED_FRAMTIME  4
+#define MENU_FRAMETIME  17
 
 #define INTERPOLATION_LINEAR    0
 #define INTERPOLATION_NONE      1

@@ -17,7 +17,10 @@
 
 #define COLOR_HITBOXES  0xff000000  // red
 
-#define MAX_TEXTURES    8
+#define MAX_TEXTURES        4
+#define MAX_ASCII_TEXTURES  128
+
+#define RENDER_TXT_MAX_LEN  256
 
 #define TEXTURE_LOGO    0
 #define TEXTURE_BIRD    1
@@ -36,9 +39,18 @@ void renderHitbox(f32 xpos, f32 ypos, f32 width, f32 height);
 
 bool loadTextures(const texinfo_t* textures, u32 numTextures);
 bool loadTexture(const char* path, bool noInterpolation, u8 textureID);
+bool loadCharTextures(const char* path, u32 numChars);
 
 void renderTexture(i16 xpos, i16 ypos, u16 scale, u16 textureID);
 void renderTextureFlip(i16 xpos, i16 ypos, u8 scale, bool vFlip, bool hFlip, u8 textureID);
 void renderTextureRotate(i16 xpos, i16 ypos, u16 rotation, u8 scale, u8 textureID);
+
+void renderChar(i16 xpos, i16 ypos, f32 scale, char charID);
+void renderCharColor(i16 xpos, i16 ypos, f32 scale, u32 color, char charID);
+void renderStr(i16 xpos, i16 ypos, f32 scale, const char* str);
+void renderStrColor(i32 xpos, i32 ypos, f32 scale, u32 color, const char* str);
+void renderStrColorFmt(i32 xpos, i32 ypos, f32 scale, u32 color, const char* fmt, ... );
+void renderStrColorCentered(i64 ypos, f32 scale, u32 color, const char* str);
+void renderStrColorFmtCentered(i64 ypos, f32 scale, u32 color, const char* fmt, ... );
 
 #endif

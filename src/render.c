@@ -1,14 +1,20 @@
+#include <stdarg.h>
+#include <stdio.h>
 #include <SDL3/SDL.h>
 
 #include <render.h>
 #include <debug/rdebug.h>
 
 texture_t r_textures[MAX_TEXTURES];
+SDL_Texture* r_asciitex[MAX_ASCII_TEXTURES];
+u32 r_asciicolors[MAX_ASCII_TEXTURES];
 
 // initialize renderer
 void initRenderer(void)
 {
     memset(r_textures, 0, sizeof(r_textures));
+    memset(r_asciitex, 0, sizeof(r_asciitex));
+    memset(r_asciicolors, 1, sizeof(r_asciicolors));
 }
 
 // cleanup renderer
@@ -118,6 +124,44 @@ bool loadTexture(const char* path, bool noInterpolation, u8 textureID)
     return 1;
 }
 
+bool loadCharTextures(const char* path, u32 numChars)
+{
+    rAssert(path);
+
+    const char* bpath = SDL_GetBasePath();
+
+    SDL_Surface* surf;
+
+    char pbuf[128];
+
+    for (u32 i = 0; i < numChars; i++) {
+        snprintf(pbuf, 128, "%s%s00000%ld.bmp", bpath, path, i + 1);
+
+        surf = SDL_LoadBMP(pbuf);
+
+        if (!surf) {
+            SDL_Log("Failed to load char %d: %s", i + 1, SDL_GetError());
+            return 0;
+        }
+
+        SDL_Log("Loaded char %d", i + 1);
+
+        r_asciitex[i] = SDL_CreateTextureFromSurface(g_renderer, surf);
+        r_asciicolors[i] = COLOR_WHITE;
+
+        if (!r_asciitex[i]) {
+            SDL_Log("Failed to create static texture for char %d: %s", i + 1, SDL_GetError());
+            return 0;
+        }
+
+        SDL_SetTextureScaleMode(r_asciitex[i], SDL_SCALEMODE_NEAREST);
+
+        SDL_DestroySurface(surf);
+    }
+
+    return 1;
+}
+
 // render texture at textureID with scale >= 1
 void renderTexture(i16 xpos, i16 ypos, u16 scale, u16 textureID)
 {
@@ -172,4 +216,103 @@ void renderTextureRotate(i16 xpos, i16 ypos, u16 rotation, u8 scale, u8 textureI
     };
 
     SDL_RenderTextureRotated(g_renderer, r_textures[textureID].sdltex, NULL, &dst, (f64) rotation, NULL, SDL_FLIP_NONE);
+}
+
+void renderChar(i16 xpos, i16 ypos, f32 scale, char charID)
+{
+    rAssert(g_renderer);
+    rAssert(charID > 31);
+    rAssert(charID < 126);
+    rAssert(r_asciitex[charID - 32]);
+
+    SDL_FRect dst = {
+        (f32) xpos,
+        (f32) ypos,
+        (f32) 64 * scale,
+        (f32) 64 * scale
+    };
+
+    if (!SDL_RenderTexture(g_renderer, r_asciitex[charID - 32], NULL, &dst))
+        SDL_Log("Failed to render char: %s", SDL_GetError());
+}
+
+void renderCharColor(i16 xpos, i16 ypos, f32 scale, u32 color, char charID)
+{
+    rAssert(charID > 31);
+    rAssert(charID < 126);
+
+    // only change color mod if necessary
+    if (r_asciicolors[charID - 32] != color) {
+        SDL_SetTextureColorMod(r_asciitex[charID - 32], color >> 24, color >> 16, color >> 8);
+        r_asciicolors[charID - 32] = color;
+    }
+
+    renderChar(xpos, ypos, scale, charID);
+}
+
+void renderStr(i16 xpos, i16 ypos, f32 scale, const char* str)
+{
+    rAssert(str);
+
+    for (u32 i = 0; i < strnlen(str, RENDER_TXT_MAX_LEN); i++) {
+        if (str[i] < 33 || str[i] > 125)
+            continue;
+        
+        renderChar(xpos + (i * 64 * scale), ypos, scale, str[i]);
+    }
+}
+
+void renderStrColor(i32 xpos, i32 ypos, f32 scale, u32 color, const char* str)
+{
+    rAssert(str);
+
+    for (u32 i = 0; i < strnlen(str, RENDER_TXT_MAX_LEN); i++) {
+        if (str[i] < 33 || str[i] > 125)
+            continue;
+
+        renderCharColor(xpos + (i * 64 * scale), ypos, scale, color, str[i]);
+    }
+}
+
+void renderStrColorFmt(i32 xpos, i32 ypos, f32 scale, u32 color, const char* fmt, ... )
+{
+    va_list args;
+
+    va_start(args, fmt);
+
+    char str[RENDER_TXT_MAX_LEN];
+
+    vsnprintf(str, RENDER_TXT_MAX_LEN, fmt, args);
+
+    str[RENDER_TXT_MAX_LEN - 1] = '\0';
+
+    renderStrColor(xpos, ypos, scale, color, str);
+
+    va_end(args);
+}
+
+void renderStrColorCentered(i64 ypos, f32 scale, u32 color, const char* str)
+{
+    f32 xpos = (WINDOW_WIDTH / 2) - ((strnlen(str, RENDER_TXT_MAX_LEN) * 64 * scale) / 2);
+
+    renderStrColor(xpos, ypos, scale, color, str);
+}
+
+void renderStrColorFmtCentered(i64 ypos, f32 scale, u32 color, const char* fmt, ... )
+{
+    va_list args;
+
+    va_start(args, fmt);
+
+    char str[RENDER_TXT_MAX_LEN];
+
+    f32 xpos = scale * 64 * vsnprintf(str, RENDER_TXT_MAX_LEN, fmt, args);
+
+    xpos = (WINDOW_WIDTH / 2) - (xpos / 2);
+
+    str[RENDER_TXT_MAX_LEN - 1] = '\0';
+
+    renderStrColor(xpos, ypos, scale, color, str);
+
+    va_end(args);
 }

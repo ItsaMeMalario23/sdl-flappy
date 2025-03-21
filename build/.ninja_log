@@ -1,11 +1,10 @@
 # ninja log v6
-32	208	7642720171441033	CMakeFiles/main.dir/src/debug/memtrack.c.obj	d53552fff780ad25
-30	191	7642720171416233	CMakeFiles/main.dir/src/debug/rdebug.c.obj	f251ef1dd432fada
-27	203	7642720171391426	CMakeFiles/main.dir/src/worldsim.c.obj	a863477759a7c836
-22	147	7642720473350894	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
-25	197	7642720171366626	CMakeFiles/main.dir/src/render.c.obj	d03fa56e5e50bf4
-148	254	7642720474610995	main.exe	a420406955aa5805
 23	149	7641917941880589	CMakeFiles/main.dir/main.c.obj	f7983f2583dc7cc0
-23	144	7642723365017624	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
-26	156	7642723365042379	CMakeFiles/main.dir/src/render.c.obj	d03fa56e5e50bf4
-157	259	7642723366351567	main.exe	a420406955aa5805
+155	261	7642964138437430	main.exe	a420406955aa5805
+26	193	7642943764378806	CMakeFiles/main.dir/src/render.c.obj	d03fa56e5e50bf4
+22	154	7642964137108146	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
+22	170	7642947761102101	CMakeFiles/main.dir/src/worldsim.c.obj	a863477759a7c836
+31	183	7642943764428133	CMakeFiles/main.dir/src/debug/rdebug.c.obj	f251ef1dd432fada
+33	198	7642943764452921	CMakeFiles/main.dir/src/debug/memtrack.c.obj	d53552fff780ad25
+23	157	7642968794367615	CMakeFiles/main.dir/src/main.c.obj	42e8ff02073c3743
+159	266	7642968795721944	main.exe	a420406955aa5805
