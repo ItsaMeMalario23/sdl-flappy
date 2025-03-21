@@ -41,10 +41,12 @@ pipepair_t* addPipePair(f32 xpos);
 
 void moveSprite(sprite_t* sprite, f32 dx, f32 dy);
 void inputUpdraft(void);
+void toggleHitboxes(void);
 
 void initWorld(void);
 u32  updateWorld(u64 dt);
 
+void renderClouds(void);
 void renderPipes(void);
 void renderBird(sprite_t* bird);
 

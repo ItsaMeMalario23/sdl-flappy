@@ -10,6 +10,9 @@
 
 #define FIXED_FRAMTIME  7
 
+#define INTERPOLATION_LINEAR    0
+#define INTERPOLATION_NONE      1
+
 #define EPSILON         (0.0001f)
 
 typedef signed char i8;
@@ -27,8 +30,18 @@ typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
 
-//typedef unsigned char bool;
+extern SDL_Renderer* g_renderer;
 
-extern SDL_Renderer* renderer;
+typedef struct texture_s {
+    SDL_Texture* sdltex;
+    u16 width;
+    u16 height;
+} texture_t;
+
+typedef struct texinfo_s {
+    const char* path;
+    u32 textureID;
+    u32 interpolation;
+} texinfo_t;
 
 #endif

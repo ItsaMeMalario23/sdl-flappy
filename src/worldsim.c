@@ -16,6 +16,7 @@ u8 g_wPipesIdx = 0;
 f32 g_wScrollDistance;
 
 bool g_wUpdraft = 0;
+bool g_wShowHitboxes = 0;
 
 static inline f32 randRange(i32 lbound, i32 ubound)
 {
@@ -77,6 +78,11 @@ void inputUpdraft(void)
     g_wUpdraft = 1;
 }
 
+void toggleHitboxes(void)
+{
+    g_wShowHitboxes = !g_wShowHitboxes;
+}
+
 void initWorld(void)
 {
     memset(g_wSprites, 0, sizeof(g_wSprites));
@@ -86,7 +92,7 @@ void initWorld(void)
     g_wPipesIdx = 0;
     g_wScrollDistance = WORLD_STD_SCROLL_DISTANCE;
 
-    (void) addSprite(SPRITE_BIRD, 34, 34, WORLD_STD_BIRD_XPOS, WORLD_STD_BIRD_YPOS);
+    (void) addSprite(SPRITE_BIRD, 64, 48, WORLD_STD_BIRD_XPOS, WORLD_STD_BIRD_YPOS);
 
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D);
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D + WORLD_STD_PIPE_DISTANCE);
@@ -101,6 +107,13 @@ u32 updateWorld(u64 dt)
     static u16 speedupTimer = 0;
     static u32 score = 100;
     static sprite_t* bird = NULL;
+
+    if (!dt) {
+        scrollTimer = 0;
+        speedupTimer = 0;
+        score = 100;
+        bird = NULL;
+    }
 
     if (!bird)
         bird = getBird();
@@ -125,25 +138,32 @@ u32 updateWorld(u64 dt)
     if (checkCollision(bird))
         return score;
 
+    renderClouds();
     renderPipes();
     renderBird(bird);
 
     setColor(COLOR_BLACK);
-    SDL_RenderDebugTextFormat(renderer, 23.0f, 23.0f, "Score: %4ld", score);
-    
-    SDL_RenderPresent(renderer);
+    SDL_RenderDebugTextFormat(g_renderer, 23.0f, 23.0f, "Score: %4ld", score);
 
     return GAME_CONTINUE;
 }
 
+void renderClouds(void)
+{
+    static i32 xpos[3] = {100, 560, 1000};
+
+    for (u8 i = 0; i < 3; i++) {
+        if (--xpos[i] < -192)
+            xpos[i] = WINDOW_WIDTH;
+    }
+
+    renderTexture(xpos[0], 160, 3, TEXTURE_CLOUD);
+    renderTextureFlip(xpos[1], 110, 3, 0, 1, TEXTURE_CLOUD);
+    renderTexture(xpos[2], 170, 3, TEXTURE_CLOUD);
+}
+
 void renderPipes(void)
 {
-    setColor(COLOR_AZURE);
-
-    SDL_RenderClear(renderer);
-
-    setColor(COLOR_OLIVE);
-
     sprite_t* tmp;
 
     for (u8 i = 0; i < g_wSpriteIdx; i++) {
@@ -154,7 +174,13 @@ void renderPipes(void)
         if (tmp->spriteType != SPRITE_PIPE)
             continue;
 
-        renderRectangle(tmp->xpos, tmp->ypos, tmp->width, tmp->height);
+        if (tmp->ypos < WINDOW_HEIGHT / 2)
+            renderTextureFlip(tmp->xpos, tmp->ypos - tmp->height, 4, 1, 0, TEXTURE_PIPE);
+        else
+            renderTexture(tmp->xpos, tmp->ypos, 4, TEXTURE_PIPE);
+
+        if (g_wShowHitboxes)
+            renderHitbox(tmp->xpos, tmp->ypos, tmp->width, tmp->height);
     }
 }
 
@@ -163,9 +189,10 @@ void renderBird(sprite_t* bird)
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
 
-    setColor(COLOR_GOLD);
+    renderTexture(bird->xpos, bird->ypos, 4, TEXTURE_BIRD);
 
-    renderRectangle(bird->xpos, bird->ypos, bird->width, bird->height);
+    if (g_wShowHitboxes)
+        renderHitbox(bird->xpos, bird->ypos, bird->width, bird->height);
 }
 
 sprite_t* getBird(void)
@@ -248,16 +275,18 @@ bool checkCollision(sprite_t* bird)
 
 void handleBirdVerticalSpeed(sprite_t* bird, u64 dt, bool updraft)
 {
-    if (!dt)
+    static f32 dy = 0.0f;
+
+    if (!dt) {
+        dy = 0.0f;
         return;
+    }
 
     if (!bird)
         bird = getBird();
 
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
-
-    static f32 dy = 0.0f;
 
     if (dy < 0.0f)
         dy *= WORLD_STD_UPDRAFT_DAMPING;
