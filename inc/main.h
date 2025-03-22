@@ -8,7 +8,7 @@
 #define WINDOW_WIDTH    1280
 #define WINDOW_HEIGHT   720
 
-#define FIXED_FRAMTIME  4
+#define FIXED_FRAMETIME  4
 #define MENU_FRAMETIME  17
 
 #define INTERPOLATION_LINEAR    0
@@ -44,5 +44,16 @@ typedef struct texinfo_s {
     u32 textureID;
     u32 interpolation;
 } texinfo_t;
+
+typedef struct vec2f_s {
+    f32 x;
+    f32 y;
+} vec2f_t;
+
+typedef struct vec3f_s {
+    f32 x;
+    f32 y;
+    f32 z;
+} vec3f_t;
 
 #endif

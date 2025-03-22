@@ -5,6 +5,7 @@
 
 #include <main.h>
 #include <render.h>
+#include <ascii.h>
 #include <worldsim.h>
 
 static SDL_Window* window = NULL;
@@ -16,6 +17,8 @@ u64 currt;
 u64 prevt = 0;
 
 u8 state = 2;
+
+asciiobj_t* obj = NULL;
 
 const texinfo_t textures[3] = {
     {"..\\resources\\bird.bmp", TEXTURE_BIRD, INTERPOLATION_NONE},
@@ -55,7 +58,7 @@ void startScreen(void)
 
     for (u8 i = 0; i < 11; i++) {
         if (i == idx)
-            renderCharColor(ypos + (i * 64 * 1.6f), 200, 1.6f, COLOR_WHITE, title[i]);
+            renderCharColor(ypos + (i * 64 * 1.6f), 200, 1.6f, COLOR_L_YELLOW, title[i]);
         else
             renderCharColor(ypos + (i * 64 * 1.6f), 200, 1.6f, COLOR_GOLD, title[i]);
     }
@@ -99,7 +102,7 @@ void gameoverScreen(u32 score)
 
     for (u8 i = 0; i < 9; i++) {
         if (i == idx)
-            renderCharColor(ypos + (i * 128), 160, 2.0f, COLOR_WHITE, str[i]);
+            renderCharColor(ypos + (i * 128), 160, 2.0f, COLOR_L_YELLOW, str[i]);
         else
             renderCharColor(ypos + (i * 128), 160, 2.0f, COLOR_GOLD, str[i]);
     }
@@ -115,10 +118,10 @@ void gameoverScreen(u32 score)
 
 SDL_AppResult handleInput(SDL_Keycode input)
 {
-    if (input < 128)
-        SDL_Log("Input: %c (%d)", (char) input, (char) input);
+    if (input < 128 && input != '\r')
+        SDL_Log("Input detected: %c (%d)", (char) input, (char) input);
     else
-        SDL_Log("Input: %ld", input);
+        SDL_Log("Input detected: %ld", input);
 
     switch (input) {
     case SDLK_ESCAPE:
@@ -143,9 +146,18 @@ SDL_AppResult handleInput(SDL_Keycode input)
         toggleHitboxes();
         break;
 
+    case SDLK_G:
+        toggleAscii();
+        break;
+
+    case SDLK_I:
+        toggleGodMode();
+        break;
+
     case SDLK_R:
         state = 1;
         prevt = 0;
+        asciiResetAll();
         initWorld();
         break;
     }
@@ -178,6 +190,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     ticksPerSecond = SDL_GetPerformanceFrequency();
 
+    asciiInit(RENDER_MODE_2D);
+
     initWorld();
 
     return SDL_APP_CONTINUE;
@@ -209,21 +223,19 @@ SDL_AppResult SDL_AppIterate(void* appstate)
         break;
     
     case 1:
-        while (prevt && ((SDL_GetPerformanceCounter() * 1000) / ticksPerSecond) - prevt < FIXED_FRAMTIME);
+        while (prevt && ((SDL_GetPerformanceCounter() * 1000) / ticksPerSecond) - prevt < FIXED_FRAMETIME);
 
         if (!prevt) {
             prevt = (SDL_GetPerformanceCounter() * 1000) / ticksPerSecond;
 
-            clearScreen(COLOR_AZURE);
             updateWorld(0);
+
             SDL_RenderPresent(g_renderer);
 
             return SDL_APP_CONTINUE;
         }
 
         currt = (SDL_GetPerformanceCounter() * 1000) / ticksPerSecond;
-
-        clearScreen(COLOR_AZURE);
 
         if ((score = updateWorld(currt - prevt)) != GAME_CONTINUE)
             state = 0;
@@ -248,4 +260,5 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
     cleanupRenderer();
+    asciiCleanup();
 }

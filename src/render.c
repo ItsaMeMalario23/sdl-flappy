@@ -24,6 +24,11 @@ void cleanupRenderer(void)
         if (r_textures[i].sdltex)
             SDL_DestroyTexture(r_textures[i].sdltex);
     }
+
+    for (u8 i = 0; i < MAX_ASCII_TEXTURES; i++) {
+        if (r_asciitex[i])
+            SDL_DestroyTexture(r_asciitex[i]);
+    }
 }
 
 // clear screen and set background color
@@ -162,6 +167,14 @@ bool loadCharTextures(const char* path, u32 numChars)
     return 1;
 }
 
+void setTextureColor(u32 textureID, u32 color)
+{
+    rAssert(textureID < MAX_TEXTURES);
+    rAssert(r_textures[textureID].sdltex);
+
+    SDL_SetTextureColorMod(r_textures[textureID].sdltex, color >> 24, color >> 16, color >> 8);
+}
+
 // render texture at textureID with scale >= 1
 void renderTexture(i16 xpos, i16 ypos, u16 scale, u16 textureID)
 {
@@ -222,7 +235,7 @@ void renderChar(i16 xpos, i16 ypos, f32 scale, char charID)
 {
     rAssert(g_renderer);
     rAssert(charID > 31);
-    rAssert(charID < 126);
+    rAssert(charID < 127);
     rAssert(r_asciitex[charID - 32]);
 
     SDL_FRect dst = {
@@ -239,7 +252,7 @@ void renderChar(i16 xpos, i16 ypos, f32 scale, char charID)
 void renderCharColor(i16 xpos, i16 ypos, f32 scale, u32 color, char charID)
 {
     rAssert(charID > 31);
-    rAssert(charID < 126);
+    rAssert(charID < 127);
 
     // only change color mod if necessary
     if (r_asciicolors[charID - 32] != color) {

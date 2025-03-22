@@ -10,6 +10,7 @@ add_executable(main)
 target_sources(main
 PRIVATE
     src/main.c
+    src/ascii.c
     src/render.c
     src/worldsim.c
     src/debug/rdebug.c

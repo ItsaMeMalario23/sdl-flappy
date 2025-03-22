@@ -6,6 +6,7 @@
 
 #include <worldsim.h>
 #include <render.h>
+#include <ascii.h>
 #include <debug/rdebug.h>
 
 sprite_t g_wSprites[WORLD_MAX_SPRITES];
@@ -18,6 +19,22 @@ f32 g_wScrollDistance;
 
 bool g_wUpdraft = 0;
 bool g_wShowHitboxes = 0;
+bool g_wGodMode = 0;
+
+bool g_wAsciiMode = 0;
+bool g_wUpdraftAnim = 0;
+
+u32 g_wTextColor = COLOR_BLACK;
+u32 g_wBackgroundColor = COLOR_AZURE;
+
+asciiobj_t* g_wAsciiBird = NULL;
+
+vec2f_t g_wBirdLocal[16] = {
+    {2.0f, 33.0f}, {14.0f, -5.0f}, {31.0f, -5.0f}, {47.0f, 2.0f},
+    {-8.0f, 9.0f}, {5.0f, 10.0f}, {32.0f, 6.0f}, {55.0f, 18.0f},
+    {33.0f, 10.0f}, {18.0f, 32.0f}, {33.0f, 32.0f}, {49.0f, 32.0f},
+    {46.0f, 18.0f}, {17.0f, 11.0f}, {17.0f, 28.0f}, {34.0f, 28.0f}
+};
 
 static inline f32 randRange(i32 lbound, i32 ubound)
 {
@@ -77,11 +94,34 @@ void moveSprite(sprite_t* sprite, f32 dx, f32 dy)
 void inputUpdraft(void)
 {
     g_wUpdraft = 1;
+    g_wUpdraftAnim = 1;
 }
 
 void toggleHitboxes(void)
 {
     g_wShowHitboxes = !g_wShowHitboxes;
+}
+
+void toggleAscii(void)
+{
+    g_wAsciiMode = !g_wAsciiMode;
+
+    if (g_wAsciiMode) {
+        setTextureColor(TEXTURE_CLOUD, COLOR_D_GRAY);
+        g_wBackgroundColor = COLOR_BLACK;
+        g_wTextColor = COLOR_WHITE;
+        g_wAsciiMode = 1;
+    } else {    
+        setTextureColor(TEXTURE_CLOUD, COLOR_WHITE);
+        g_wBackgroundColor = COLOR_AZURE;
+        g_wTextColor = COLOR_BLACK;
+        g_wAsciiMode = 0;
+    }
+}
+
+void toggleGodMode(void)
+{
+    g_wGodMode = !g_wGodMode;
 }
 
 void initWorld(void)
@@ -99,6 +139,20 @@ void initWorld(void)
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D + WORLD_STD_PIPE_DISTANCE);
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D + (WORLD_STD_PIPE_DISTANCE * 2));
 
+    u32 chars[16] = {
+        '\\', '-', '-', '\\',
+        '(', '@', 'O', '>',
+        '\'', '_', '_', '/',
+        '>', ')', 'B', 'D'};
+
+    u32 colors[16] = {
+        COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
+        COLOR_WHITE, COLOR_GOLD, COLOR_WHITE, COLOR_RED,
+        COLOR_BLACK, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
+        COLOR_RED, COLOR_WHITE, COLOR_GOLD, COLOR_GOLD};
+
+    g_wAsciiBird = asciiObject2D(g_wBirdLocal, colors, chars, 16);
+
     srand(time(NULL));
 }
 
@@ -108,6 +162,8 @@ u32 updateWorld(u64 dt)
     static u16 speedupTimer = 0;
     static u32 score = 100;
     static sprite_t* bird = NULL;
+
+    static u16 animCounter = 0;
 
     if (!dt) {
         scrollTimer = 0;
@@ -133,16 +189,53 @@ u32 updateWorld(u64 dt)
 
     g_wUpdraft = 0;
 
-    if (checkCollision(bird))
+    if (checkCollision(bird) && !g_wGodMode) {
+        clearScreen(COLOR_BLACK);
         return score;
+    }
+
+    if (g_wAsciiMode)
+        handleAnimation(dt);
+
+    clearScreen(g_wBackgroundColor);
 
     renderClouds(dt);
     renderPipes();
     renderBird(bird);
-    renderStrColorFmt(23, 23, 0.25f, COLOR_BLACK, "Score: %5ld", score);
-    renderStrColorFmt(1070, 23, 0.25f, COLOR_BLACK, "FPS: %.2f", (f32) 1000 / dt);
+    renderStrColorFmt(23, 23, 0.25f, g_wTextColor, "Score: %5ld", score);
+    renderStrColorFmt(1070, 23, 0.25f, g_wTextColor, "FPS: %.2f", (f32) 1000 / dt);
 
     return GAME_CONTINUE;
+}
+
+void handleAnimation(u64 dt)
+{
+    static u32 counter = 0;
+
+    if (g_wUpdraftAnim && !counter) {
+        setUpdraftAnimation();
+        counter = 1;
+    }
+
+    if (g_wUpdraftAnim) {
+        if ((counter += dt) >= 350) {
+            resetUpdraftAnimation();
+            g_wUpdraftAnim = 0;
+            counter = 0;
+        }
+    }
+}
+
+void setUpdraftAnimation(void)
+{
+    g_wBirdLocal[4].y = 13.0f;
+    g_wBirdLocal[5].y = 12.0f;
+}
+
+void resetUpdraftAnimation(void)
+{
+    g_wBirdLocal[4].y = 9.0f;
+    g_wBirdLocal[5].y = 10.0f;
 }
 
 void renderClouds(u64 dt)
@@ -186,7 +279,12 @@ void renderBird(sprite_t* bird)
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
 
-    renderTexture(roundf(bird->xpos), roundf(bird->ypos), 4, TEXTURE_BIRD);
+    if (g_wAsciiMode) {
+        setPosAsciiObject2D(g_wAsciiBird, g_wBirdLocal, bird->xpos, bird->ypos, 16);
+        renderAscii(0, 0);
+    } else {
+        renderTexture((i16) roundf(bird->xpos), (i16) roundf(bird->ypos), 4, TEXTURE_BIRD);
+    }
 
     if (g_wShowHitboxes)
         renderHitbox(bird->xpos, bird->ypos, bird->width, bird->height);

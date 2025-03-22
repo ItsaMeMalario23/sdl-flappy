@@ -14,6 +14,9 @@
 #define COLOR_BLACK     0x00000000
 #define COLOR_WHITE     0xffffff00
 #define COLOR_WWHITE    0xe0e0ce00
+#define COLOR_L_YELLOW  0xffee9c00
+#define COLOR_L_GRAY    0xa3a4a400
+#define COLOR_D_GRAY    0x36363600
 
 #define COLOR_HITBOXES  0xff000000  // red
 
@@ -40,6 +43,7 @@ void renderHitbox(f32 xpos, f32 ypos, f32 width, f32 height);
 bool loadTextures(const texinfo_t* textures, u32 numTextures);
 bool loadTexture(const char* path, bool noInterpolation, u8 textureID);
 bool loadCharTextures(const char* path, u32 numChars);
+void setTextureColor(u32 textureID, u32 color);
 
 void renderTexture(i16 xpos, i16 ypos, u16 scale, u16 textureID);
 void renderTextureFlip(i16 xpos, i16 ypos, u8 scale, bool vFlip, bool hFlip, u8 textureID);
