@@ -149,7 +149,7 @@ bool loadCharTextures(const char* path, u32 numChars)
             return 0;
         }
 
-        SDL_Log("Loaded char %d", i + 1);
+        // SDL_Log("Loaded char %d: %ldx%ld", i + 1, surf->w, surf->h);
 
         r_asciitex[i] = SDL_CreateTextureFromSurface(g_renderer, surf);
         r_asciicolors[i] = COLOR_WHITE;

@@ -17,6 +17,9 @@
 #define COLOR_L_YELLOW  0xffee9c00
 #define COLOR_L_GRAY    0xa3a4a400
 #define COLOR_D_GRAY    0x36363600
+#define COLOR_D_GREEN   0x00300000
+#define COLOR_M_GREEN   0x0d700000
+#define COLOR_L_GREEN   0x40d80000
 
 #define COLOR_HITBOXES  0xff000000  // red
 

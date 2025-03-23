@@ -7,6 +7,8 @@
 #include <render.h>
 #include <ascii.h>
 #include <worldsim.h>
+#include <debug/rdebug.h>
+#include <debug/memtrack.h>
 
 static SDL_Window* window = NULL;
 
@@ -17,8 +19,6 @@ u64 currt;
 u64 prevt = 0;
 
 u8 state = 2;
-
-asciiobj_t* obj = NULL;
 
 const texinfo_t textures[3] = {
     {"..\\resources\\bird.bmp", TEXTURE_BIRD, INTERPOLATION_NONE},
@@ -175,12 +175,18 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer("SDL-FLAPPY", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_BORDERLESS, &window, &g_renderer)) {
+    if (!SDL_CreateWindowAndRenderer("SDL-FLAPPY", WINDOW_WIDTH * WINDOW_SCALE, WINDOW_HEIGHT * WINDOW_SCALE, SDL_WINDOW_BORDERLESS, &window, &g_renderer)) {
         SDL_Log("Failed to create window: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
+    SDL_SetRenderScale(g_renderer, WINDOW_SCALE, WINDOW_SCALE);
+
     initRenderer();
+
+    initAscii(RENDER_MODE_2D);
+
+    initWorld();
 
     if (!loadTextures(textures, 3))
         return SDL_APP_FAILURE;
@@ -189,10 +195,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
         return SDL_APP_FAILURE;
 
     ticksPerSecond = SDL_GetPerformanceFrequency();
-
-    asciiInit(RENDER_MODE_2D);
-
-    initWorld();
 
     return SDL_APP_CONTINUE;
 }
@@ -218,10 +220,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
     static u32 score = 0;
 
     switch (state) {
-    case 2:
-        startScreen();
-        break;
-    
     case 1:
         while (prevt && ((SDL_GetPerformanceCounter() * 1000) / ticksPerSecond) - prevt < FIXED_FRAMETIME);
 
@@ -244,6 +242,10 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 
         prevt = currt;
 
+        break;
+
+    case 2:
+        startScreen();
         break;
 
     default:

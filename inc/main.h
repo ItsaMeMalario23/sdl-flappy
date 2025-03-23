@@ -4,11 +4,15 @@
 #include <SDL3/SDL.h>
 
 #define R_DEBUG
+#define RDEBUG_BREAK_EXIT
+#define MTRACK_DEBUG
 
 #define WINDOW_WIDTH    1280
 #define WINDOW_HEIGHT   720
 
-#define FIXED_FRAMETIME  4
+#define WINDOW_SCALE    (1.0f)
+
+#define FIXED_FRAMETIME 4
 #define MENU_FRAMETIME  17
 
 #define INTERPOLATION_LINEAR    0

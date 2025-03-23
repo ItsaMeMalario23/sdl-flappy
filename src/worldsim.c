@@ -28,12 +28,45 @@ u32 g_wTextColor = COLOR_BLACK;
 u32 g_wBackgroundColor = COLOR_AZURE;
 
 asciiobj_t* g_wAsciiBird = NULL;
+asciiobj_t* g_wAsciiPipeHeadTop = NULL;
+asciiobj_t* g_wAsciiPipeHeadBot = NULL;
+asciiobj_t* g_wAsciiPipeSection = NULL;
 
 vec2f_t g_wBirdLocal[16] = {
-    {2.0f, 33.0f}, {14.0f, -5.0f}, {31.0f, -5.0f}, {47.0f, 2.0f},
-    {-8.0f, 9.0f}, {5.0f, 10.0f}, {32.0f, 6.0f}, {55.0f, 18.0f},
-    {33.0f, 10.0f}, {18.0f, 32.0f}, {33.0f, 32.0f}, {49.0f, 32.0f},
-    {46.0f, 18.0f}, {17.0f, 11.0f}, {17.0f, 28.0f}, {34.0f, 28.0f}
+    {  2,  33}, { 14,  -5}, { 31,  -5}, { 47,   2},
+    {-12,   9}, {  3,  10}, { 32,   6}, { 55,  18},
+    { 33,  10}, { 18,  32}, { 33,  32}, { 49,  32},
+    { 46,  18}, { 17,  11}, { 17,  28}, { 34,  28}
+};
+
+vec2f_t g_wPipeHeadTopLocal[37] = {
+    {  0, -14}, { 16, -14}, { 32, -14}, { 48, -14}, { 64, -14},             // top lines
+    { 42,  12}, { 58,  12}, { 42,  28}, { 58,  28},                         // top pattern r
+    {  1,  -2}, { 16,  12}, { 16,  28},                                     // top pattern l
+    { 28,  12}, { 28,  28}, {  2,  28}, {  2,  17},                         // top fill mid
+    {  3,   0}, { 22,   0}, { 42,   0}, { 61,   0},                         // top fill top
+    { 66,  16}, { 66,  25}, { 66,  34},                                     // top fill r
+    {-10,   1}, { 72,   1}, {-10,  17}, { 72,  17}, {-10,  33}, { 72,  33}, // side lines
+    {  0,  45}, { 16,  41}, { 32,  41}, { 48,  41}, { 62,  45},             // taper down
+    { 14,  41}, { 32,  41}, { 50,  41},                                     // taper down fill
+};
+
+vec2f_t g_wPipeHeadBotLocal[39] = {
+    { 14, -23}, { 32, -23}, { 50, -23},                                     // taper down fill
+    {  0,  -5}, { 16,  -7}, { 32,  -7}, { 48,  -7}, { 62,  -5},             // taper down
+    {-10,  33}, { 72,  33}, {-10,  17}, { 72,  17}, {-10,   1}, { 72,   1}, // side lines
+    { 66,  10}, { 66,  20}, { 66,  30},                                     // top fill r
+    {  3,  34}, { 22,  34}, { 42,  34}, { 61,  34},                         // top fill top
+    { 28,  22}, { 28,   6}, {  2,   6}, {  2,  25},                         // top fill mid
+    {  1,  20}, { 16,  22}, { 16,   6},                                     // top pattern l
+    { 42,  22}, { 58,  22}, { 42,   6}, { 58,   6},                         // top pattern r
+    {  0,  32}, { 16,  32}, { 32,  32}, { 48,  32}, { 64,  32},             // top lines
+    {  0, -12}, { 62, -12},
+};
+
+vec2f_t g_wPipeSectionLocal[9] = {
+    {  0,  61}, { 10,  55}, { 24,  61}, { 34,  61}, { 47,  61}, { 62,  61}, // section pattern
+    { 12,  67}, { 56,  63}, { 56,  69},                                     // section fill bot
 };
 
 static inline f32 randRange(i32 lbound, i32 ubound)
@@ -110,12 +143,10 @@ void toggleAscii(void)
         setTextureColor(TEXTURE_CLOUD, COLOR_D_GRAY);
         g_wBackgroundColor = COLOR_BLACK;
         g_wTextColor = COLOR_WHITE;
-        g_wAsciiMode = 1;
     } else {    
         setTextureColor(TEXTURE_CLOUD, COLOR_WHITE);
         g_wBackgroundColor = COLOR_AZURE;
         g_wTextColor = COLOR_BLACK;
-        g_wAsciiMode = 0;
     }
 }
 
@@ -139,19 +170,82 @@ void initWorld(void)
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D + WORLD_STD_PIPE_DISTANCE);
     (void) addPipePair(WORLD_STD_FIRST_PIPE_D + (WORLD_STD_PIPE_DISTANCE * 2));
 
-    u32 chars[16] = {
+    u32 birdChars[16] = {
         '\\', '-', '-', '\\',
         '(', '@', 'O', '>',
         '\'', '_', '_', '/',
         '>', ')', 'B', 'D'};
 
-    u32 colors[16] = {
+    u32 birdColors[16] = {
         COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
         COLOR_WHITE, COLOR_GOLD, COLOR_WHITE, COLOR_RED,
         COLOR_BLACK, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
         COLOR_RED, COLOR_WHITE, COLOR_GOLD, COLOR_GOLD};
 
-    g_wAsciiBird = asciiObject2D(g_wBirdLocal, colors, chars, 16);
+    u32 pipeHeadChars[37] = {
+        '_', '_', '_', '_', '_',            // top lines
+        '#', 'E', '#', 'E',                 // top pattern r
+        '_', ']', ']',                      // top pattern l
+        '!', '!', '#', '\"',                // top fill mid
+        '=', '=', '=', '=',                 // top fill top
+        '`', '`', '`',                      // top fill r
+        '|', '|', '|', '|', '|', '|',       // side lines
+        'T', '=', '=', '=', 'T',            // taper down
+        '_', '_', '_',                      // taper down fill
+    };
+
+    u32 pipeHeadColors[37] = {
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN,
+        COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+    };
+
+    u32 pipeHeadBotChars[39] = {
+        '_', '_', '_',                      // taper down fill
+        '-', '=', '=', '=', '-',            // taper down
+        '|', '|', '|', '|', '|', '|',       // side lines
+        '`', '`', '`',                      // top fill r
+        '=', '=', '=', '=',                 // top fill top
+        '!', '!', '#', '\"',                // top fill mid
+        '_', ']', ']',                      // top pattern l
+        '#', 'E', '#', 'E',                 // top pattern r
+        '_', '_', '_', '_', '_',            // top lines
+        '|', '|',
+    };
+
+    u32 pipeHeadBotColors[39] = {
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+        COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN,
+        COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN, COLOR_D_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN, COLOR_L_GREEN,
+        COLOR_L_GREEN, COLOR_L_GREEN,
+    };
+
+    u32 pipeSectionChars[9] = {
+        '|', '-', ']', '!', 'E', '|',       // section pattern
+        '\"', '`', '`',                     // section fill top
+    };
+
+    u32 pipeSectionColors[9] = {
+        COLOR_L_GREEN, COLOR_D_GREEN, COLOR_D_GREEN, COLOR_M_GREEN, COLOR_D_GREEN, COLOR_L_GREEN,
+        COLOR_M_GREEN, COLOR_M_GREEN, COLOR_M_GREEN,
+    };
+
+    g_wAsciiBird = asciiObject2D(g_wBirdLocal, birdColors, birdChars, 16);
+    g_wAsciiPipeHeadTop = asciiObject2D(g_wPipeHeadTopLocal, pipeHeadColors, pipeHeadChars, 37);
+    g_wAsciiPipeHeadBot = asciiObject2D(g_wPipeHeadBotLocal, pipeHeadBotColors, pipeHeadBotChars, 39);
+    g_wAsciiPipeSection = asciiObject2D(g_wPipeSectionLocal, pipeSectionColors, pipeSectionChars, 9);
 
     srand(time(NULL));
 }
@@ -162,8 +256,6 @@ u32 updateWorld(u64 dt)
     static u16 speedupTimer = 0;
     static u32 score = 100;
     static sprite_t* bird = NULL;
-
-    static u16 animCounter = 0;
 
     if (!dt) {
         scrollTimer = 0;
@@ -264,10 +356,37 @@ void renderPipes(void)
         if (tmp->spriteType != SPRITE_PIPE)
             continue;
 
-        if (tmp->ypos < WINDOW_HEIGHT / 2)
-            renderTextureFlip(roundf(tmp->xpos), roundf(tmp->ypos - tmp->height), 4, 1, 0, TEXTURE_PIPE);
+        if (g_wAsciiMode)
+        {
+            if (tmp->ypos < WINDOW_HEIGHT / 2) {
+                setPosAsciiObject2D(g_wAsciiPipeHeadBot, g_wPipeHeadBotLocal, tmp->xpos, tmp->ypos + tmp->height - 48.0f);
+                setPosAsciiObject2D(g_wAsciiPipeSection, g_wPipeSectionLocal, tmp->xpos, tmp->ypos + tmp->height - 137.0f);
+
+                renderAsciiPartial(g_wAsciiPipeHeadBot);
+
+                i8 numSections = (i8) roundf((tmp->ypos + tmp->height - 126.0f) / 16) + 5;
+
+                for (i8 k = 0; k < numSections; k++)
+                    renderAsciiPartialOffset2D(g_wAsciiPipeSection, 0.0f, k * -16.0f);
+            } else {
+                setPosAsciiObject2D(g_wAsciiPipeHeadTop, g_wPipeHeadTopLocal, tmp->xpos, tmp->ypos);
+                setPosAsciiObject2D(g_wAsciiPipeSection, g_wPipeSectionLocal, tmp->xpos, tmp->ypos);
+
+                renderAsciiPartial(g_wAsciiPipeHeadTop);
+
+                i8 numSections = (i8) roundf((WINDOW_HEIGHT - tmp->ypos) / 16) - 3;
+
+                for (i8 k = 0; k < numSections; k++)
+                    renderAsciiPartialOffset2D(g_wAsciiPipeSection, 0.0f, k * 16.0f);
+            }
+        }
         else
-            renderTexture(roundf(tmp->xpos), roundf(tmp->ypos), 4, TEXTURE_PIPE);
+        {
+            if (tmp->ypos < WINDOW_HEIGHT / 2)
+                renderTextureFlip(roundf(tmp->xpos), roundf(tmp->ypos - tmp->height), 4, 1, 0, TEXTURE_PIPE);
+            else
+                renderTexture(roundf(tmp->xpos), roundf(tmp->ypos), 4, TEXTURE_PIPE);
+        }
 
         if (g_wShowHitboxes)
             renderHitbox(tmp->xpos, tmp->ypos, tmp->width, tmp->height);
@@ -279,10 +398,12 @@ void renderBird(sprite_t* bird)
     rAssert(bird);
     rAssert(bird->spriteType == SPRITE_BIRD);
 
-    if (g_wAsciiMode) {
-        setPosAsciiObject2D(g_wAsciiBird, g_wBirdLocal, bird->xpos, bird->ypos, 16);
-        renderAscii(0, 0);
-    } else {
+    if (g_wAsciiMode)
+    {
+        renderAsciiPartialOffset2D(g_wAsciiBird, bird->xpos, bird->ypos);
+    }
+    else
+    {
         renderTexture((i16) roundf(bird->xpos), (i16) roundf(bird->ypos), 4, TEXTURE_BIRD);
     }
 

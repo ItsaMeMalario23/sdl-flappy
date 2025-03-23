@@ -65,12 +65,15 @@ struct pageinfo_s {
 //
 //  Public funtions
 //
-void asciiInit(u32 renderMode);
+void initAscii(u32 renderMode);
 void asciiCleanup(void);
 void asciiResetAll(void);
 void asciiChangeMode(u32 renderMode);
 
 void renderAscii(u32 clearScr, u32 backgroundColor);
+void renderAsciiPartial(asciiobj_t* object);
+void renderAsciiPartialOffset2D(asciiobj_t* object, f32 dx, f32 dy);
+void renderAsciiPartialOffset3D(asciiobj_t* object, f32 dx, f32 dy, f32 dz);
 
 char2Idx asciiChar2D(f32 xpos, f32 ypos, u32 color, u32 charID);
 char3Idx asciiChar3D(f32 xpos, f32 ypos, f32 zpos, u32 color, u64 charID);
@@ -82,8 +85,8 @@ void moveAsciiChar2D(char2Idx idx, f32 dx, f32 dy);
 void moveAsciiChar3D(char3Idx idx, f32 dx, f32 dy, f32 dz);
 void moveAsciiObject2D(asciiobj_t* object, f32 dx, f32 dy);
 void moveAsciiObject3D(asciiobj_t* object, f32 dx, f32 dy, f32 dz);
-void setPosAsciiObject2D(asciiobj_t* object, vec2f_t* local, f32 xglobal, f32 yglobal, u64 len);
-void setPosAsciiObject3D(asciiobj_t* object, vec3f_t* local, f32 xglobal, f32 yglobal, f32 zglobal, u32 len);
+void setPosAsciiObject2D(asciiobj_t* object, vec2f_t* local, f32 xglobal, f32 yglobal);
+void setPosAsciiObject3D(asciiobj_t* object, vec3f_t* local, f32 xglobal, f32 yglobal, f32 zglobal);
 
 void changeAsciiCharColor2D(char2Idx idx, u32 color);
 void changeAsciiCharColor3D(char3Idx idx, u32 color);
@@ -104,7 +107,7 @@ char2Idx    getChar2(void);
 char3Idx    getChar3(void);
 void        renderPaged(void);
 void        addPage(void* ptr, u32 len, u32 type);
-void        removePaged(void* ptr);
+void        removePage(void* ptr);
 void        freePaged(void);
 
 #endif
