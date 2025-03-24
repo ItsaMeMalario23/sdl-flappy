@@ -12,6 +12,7 @@ PRIVATE
     src/main.c
     src/ascii.c
     src/render.c
+    src/objects.c
     src/worldsim.c
     src/debug/rdebug.c
     src/debug/memtrack.c

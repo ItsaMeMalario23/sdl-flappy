@@ -62,6 +62,12 @@ build CMakeFiles/main.dir/src/render.c.obj: C_COMPILER__main_unscanned_ C$:/dev/
   OBJECT_DIR = CMakeFiles\main.dir
   OBJECT_FILE_DIR = CMakeFiles\main.dir\src
 
+build CMakeFiles/main.dir/src/objects.c.obj: C_COMPILER__main_unscanned_ C$:/dev/c/sdl-flappy/src/objects.c || cmake_object_order_depends_target_main
+  DEP_FILE = CMakeFiles\main.dir\src\objects.c.obj.d
+  INCLUDES = -IC:/dev/c/sdl-flappy/inc
+  OBJECT_DIR = CMakeFiles\main.dir
+  OBJECT_FILE_DIR = CMakeFiles\main.dir\src
+
 build CMakeFiles/main.dir/src/worldsim.c.obj: C_COMPILER__main_unscanned_ C$:/dev/c/sdl-flappy/src/worldsim.c || cmake_object_order_depends_target_main
   DEP_FILE = CMakeFiles\main.dir\src\worldsim.c.obj.d
   INCLUDES = -IC:/dev/c/sdl-flappy/inc
@@ -88,7 +94,7 @@ build CMakeFiles/main.dir/src/debug/memtrack.c.obj: C_COMPILER__main_unscanned_ 
 #############################################
 # Link the executable main.exe
 
-build main.exe: C_EXECUTABLE_LINKER__main_ CMakeFiles/main.dir/src/main.c.obj CMakeFiles/main.dir/src/ascii.c.obj CMakeFiles/main.dir/src/render.c.obj CMakeFiles/main.dir/src/worldsim.c.obj CMakeFiles/main.dir/src/debug/rdebug.c.obj CMakeFiles/main.dir/src/debug/memtrack.c.obj | C$:/src/msys64/ucrt64/lib/libSDL3.dll.a
+build main.exe: C_EXECUTABLE_LINKER__main_ CMakeFiles/main.dir/src/main.c.obj CMakeFiles/main.dir/src/ascii.c.obj CMakeFiles/main.dir/src/render.c.obj CMakeFiles/main.dir/src/objects.c.obj CMakeFiles/main.dir/src/worldsim.c.obj CMakeFiles/main.dir/src/debug/rdebug.c.obj CMakeFiles/main.dir/src/debug/memtrack.c.obj | C$:/src/msys64/ucrt64/lib/libSDL3.dll.a
   LINK_LIBRARIES = C:/src/msys64/ucrt64/lib/libSDL3.dll.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\main.dir
   POST_BUILD = cd .

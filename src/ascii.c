@@ -9,778 +9,480 @@
 #include <debug/rdebug.h>
 #include <debug/memtrack.h>
 
-void* g_asciibuf = NULL;
-asciiobj_t g_asciiobjects[RENDER_MAX_OBJECTS];
+char g_asciiRenderBufMem[ASCII_RENDER_BUF_SIZE];
+char g_asciiCharBufMem[ASCII_CHAR_BUF_SIZE];
 
-u16 g_bufidx = 0;
-u16 g_objectsidx = 0;
+void* g_renderbuf = (void*) g_asciiRenderBufMem;
+void* g_charbuf = (void*) g_asciiCharBufMem;
 
-u16 g_asciimode = RENDER_MODE_UNINIT;
+u32 g_renderBufIdx = 0;
+u32 g_charBufIdx = 0;
 
-bool g_memfragmented = 0;
-bool g_objfragmented = 0;
+asciiobj_t g_asciiObjBuf[ASCII_OBJ_BUF_SIZE];
+asciiobj_t* g_objidx = g_asciiObjBuf;
+
+u32 g_asciistate = ASCII_RENDER_UNINIT;
+
+u16 g_charMemFragmented = 0;
+u16 g_objMemFragmented = 0;
 
 pageinfo_t* g_pagedmem = NULL;
 
-//
-//  Public functions
-//
+// initialize ascii renderer
 void initAscii(u32 renderMode)
 {
-    if (g_asciibuf || g_asciimode != RENDER_MODE_UNINIT) {
-        SDL_Log("ASCII init failed, already initialized");
-        return;
-    }
+    rAssert(g_renderbuf);
+    rAssert(g_charbuf);
+    rAssert(renderMode == ASCII_RENDER_MODE_2D || renderMode == ASCII_RENDER_MODE_3D);
 
-    rAssert(renderMode == RENDER_MODE_2D || renderMode == RENDER_MODE_3D);
+    memset(g_renderbuf, 0, ASCII_RENDER_BUF_SIZE);
+    memset(g_charbuf, 0, ASCII_CHAR_BUF_SIZE);
+    memset(g_asciiObjBuf, 0, sizeof(g_asciiObjBuf));
 
-    // allocate with sizeof bigger struct so main buf only needs to be allocated once
-    g_asciibuf = (void*) memAlloc(RENDER_MAX_CHARS * sizeof(ascii3_t));
-    g_asciimode = renderMode;
-    g_bufidx = 0;
-    g_objectsidx = 0;
-    g_memfragmented = 0;
-    g_objfragmented = 0;
-
-    memset(g_asciibuf, 0, RENDER_MAX_CHARS * sizeof(ascii3_t));
-    memset(g_asciiobjects, 0, sizeof(g_asciiobjects));
+    g_asciistate = renderMode;
+    g_objidx = g_asciiObjBuf;
+    g_charMemFragmented = 0;
+    g_objMemFragmented = 0;
+    g_renderBufIdx = 0;
+    g_charBufIdx = 0;
+    g_pagedmem = NULL;
 }
 
-void asciiCleanup(void)
+// cleanup ascii renderer
+void cleanupAscii(void)
 {
-    if (!g_asciibuf || g_asciimode == RENDER_MODE_UNINIT) {
-        SDL_Log("ASCII cleanup failed, not initialized");
-        return;
-    }
-
-    memFree(g_asciibuf);
-
-    freePaged();
-
-    g_asciibuf = NULL;
-    g_bufidx = 0;
-    g_objectsidx = 0;
-    g_memfragmented = 0;
-    g_objfragmented = 0;
-    g_asciimode = RENDER_MODE_UNINIT;
+    asciiResetAll();
+    g_asciistate = ASCII_RENDER_UNINIT;
 }
 
-// reset buffers
+// reset all buffers
 void asciiResetAll(void)
 {
-    if (!g_asciibuf || g_asciimode == RENDER_MODE_UNINIT) {
+    if (g_asciistate == ASCII_RENDER_UNINIT) {
         SDL_Log("ASCII reset failed, not initialized");
         return;
     }
 
-    memset(g_asciibuf, 0, RENDER_MAX_CHARS * sizeof(ascii3_t));
-    memset(g_asciiobjects, 0, sizeof(g_asciiobjects));
+    if (g_pagedmem)
+        freePages();
 
-    freePaged();
-
-    g_bufidx = 0;
-    g_objectsidx = 0;
-    g_memfragmented = 0;
-    g_objfragmented = 0;
+    initAscii(g_asciistate);
 }
 
-// change between 2D and 3D mode
+// change between 2D and 3D render mode
 void asciiChangeMode(u32 renderMode)
 {
-    if (!g_asciibuf || g_asciimode == RENDER_MODE_UNINIT) {
+    if (g_asciistate == ASCII_RENDER_UNINIT) {
         SDL_Log("ASCII change mode failed, not initialized");
         return;
     }
 
-    rAssert(renderMode == RENDER_MODE_2D || renderMode == RENDER_MODE_3D);
-
-    memset(g_asciibuf, 0, RENDER_MAX_CHARS * sizeof(ascii3_t));
-    memset(g_asciiobjects, 0, sizeof(g_asciiobjects));
-
-    g_asciimode = renderMode;
-    g_bufidx = 0;
-    g_objectsidx = 0;
-    g_memfragmented = 0;
-    g_objfragmented = 0;
-}
-
-// render all ascii chars and objects
-void renderAscii(u32 clearScr, u32 backgroundColor)
-{
-    if (!g_asciibuf || g_asciimode == RENDER_MODE_UNINIT) {
-        SDL_Log("ASCII render failed, not initialized");
+    if (renderMode != ASCII_RENDER_MODE_2D && renderMode != ASCII_RENDER_MODE_3D) {
+        SDL_Log("ASCII change mode failed, invalid render mode");
         return;
     }
+
+    if (renderMode == g_asciistate) {
+        SDL_Log("ASCII change mode unnecessary");
+        return;
+    }
+
+    initAscii(renderMode);
+}
+
+// render ascii buf
+void asciiRenderAll(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf)
+{
+    if (g_asciistate == ASCII_RENDER_MODE_2D)
+        asciiRender2D(backgroundColor, clearScr, preserveRenderBuf);
+    else if (g_asciistate == ASCII_RENDER_MODE_3D)
+        asciiRender3D(backgroundColor, clearScr, preserveRenderBuf);
+    else
+        SDL_Log("Failed to render ASCII, invalid state");
+}
+
+// render ascii buf
+void asciiRender2D(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf)
+{
+    rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
 
     if (clearScr)
         clearScreen(backgroundColor);
 
-    u32 bound = g_memfragmented ? RENDER_MAX_CHARS : g_bufidx;
+    renderBuf2D((ascii2_t*) g_renderbuf, g_renderBufIdx, 0.0f, 0.0f);
 
-    if (g_asciimode == RENDER_MODE_2D)
-    {
-        ascii2_t* buf = (ascii2_t*) g_asciibuf;
-
-        for (u32 i = 0; i < bound; i++) {
-            if (buf[i].charID < 32)
-                continue;
-
-            renderCharColor((i16) roundf(buf[i].xpos), (i16) roundf(buf[i].ypos), 0.25f, buf[i].color, buf[i].charID);
-        }
-    }
-    else if (g_asciimode == RENDER_MODE_3D)
-    {
-        ascii3_t* buf = (ascii3_t*) g_asciibuf;
-
-        for (u32 i = 0; i < bound; i++) {
-            if (buf[i].charID < 32)
-                continue;
-
-            renderCharColor((i16) roundf(buf[i].xpos), (i16) roundf(buf[i].ypos), 0.25f, buf[i].color, buf[i].charID);
-        }
-    }
-
-    if (g_pagedmem)
-        renderPaged();
+    if (!preserveRenderBuf)
+        g_renderBufIdx = 0;
 }
 
-// render single ascii object
-void renderAsciiPartial(asciiobj_t* object)
+// render ascii buf
+void asciiRender3D(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf)
 {
-    rAssert(object);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
 
-    if (!g_asciibuf || g_asciimode == RENDER_MODE_UNINIT) {
-        SDL_Log("ASCII partial render failed, not initialized");
-        return;
-    }
+    if (clearScr)
+        clearScreen(backgroundColor);
 
-    if (g_asciimode == RENDER_MODE_2D)
-    {
-        rAssert(object->type == OBJ_TYPE_2D);
-        rAssert(object->data.ascii2);
+    renderBuf3D((ascii3_t*) g_renderbuf, g_renderBufIdx, 0.0f, 0.0f, 0.0f);
 
-        for (u32 i = 0; i < object->len; i++) {
-            if (object->data.ascii2[i].charID < 32)
-                continue;
-
-            renderCharColor
-            (
-                (i16) roundf(object->data.ascii2[i].xpos),
-                (i16) roundf(object->data.ascii2[i].ypos),
-                0.25f,
-                object->data.ascii2[i].color,
-                object->data.ascii2[i].charID
-            );
-        }
-    }
-    else if (g_asciimode == RENDER_MODE_3D)
-    {
-        rAssert(object->type == OBJ_TYPE_3D);
-        rAssert(object->data.ascii3);
-
-        for (u32 i = 0; i < object->len; i++) {
-            if (object->data.ascii3[i].charID < 32)
-                continue;
-
-            renderCharColor
-            (
-                (i16) roundf(object->data.ascii3[i].xpos),
-                (i16) roundf(object->data.ascii3[i].ypos),
-                0.25f,
-                object->data.ascii3[i].color,
-                object->data.ascii3[i].charID
-            );
-        }
-    }
+    if (!preserveRenderBuf)
+        g_renderBufIdx = 0;
 }
 
-// render single 2D ascii object with offset
-void renderAsciiPartialOffset2D(asciiobj_t* object, f32 dx, f32 dy)
+// write 2D object to render buf
+void renderAsciiObject2D(asciiobj_t* object)
 {
     rAssert(object);
     rAssert(object->data.ascii2);
-    rAssert(object->type == OBJ_TYPE_2D);
-    rAssert(g_asciimode == RENDER_MODE_2D);
+    rAssert(object->type == ASCII_OBJ_2D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
 
-    for (u32 i = 0; i < object->len; i++) {
-        if (object->data.ascii2[i].charID < 32)
-                continue;
-
-        renderCharColor
-        (
-            (i16) roundf(object->data.ascii2[i].xpos + dx),
-            (i16) roundf(object->data.ascii2[i].ypos + dy),
-            0.25f,
-            object->data.ascii2[i].color,
-            object->data.ascii2[i].charID
-        );
+    if (g_renderBufIdx + object->len >= ASCII_MAX_2D_CHARS) {
+        SDL_Log("Failed to render 2D ASCII object, render buf full");
+        return;
     }
+
+    memcpy((ascii2_t*) g_renderbuf + g_renderBufIdx, object->data.ascii2, object->len * sizeof(ascii2_t));
+
+    if (object->xpos > EPSILON || object->xpos < -EPSILON ||
+        object->ypos > EPSILON || object->ypos < -EPSILON)
+    {
+        for (u32 i = 0; i < object->len; i++) {
+            ((ascii2_t*) g_renderbuf + i)->xpos += object->xpos;
+            ((ascii2_t*) g_renderbuf + i)->ypos += object->ypos;
+        }
+    }
+
+    g_renderBufIdx += object->len;
 }
 
-// render single 3D ascii object with offset
-void renderAsciiPartialOffset3D(asciiobj_t* object, f32 dx, f32 dy, f32 dz)
+// write 3D object to render buf
+void renderAsciiObject3D(asciiobj_t* object)
+{
+    rAssert(object);
+    rAssert(object->data.ascii2);
+    rAssert(object->type == ASCII_OBJ_3D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
+
+    if (g_renderBufIdx + object->len >= ASCII_MAX_3D_CHARS) {
+        SDL_Log("Failed to render 3D ASCII object, render buf full");
+        return;
+    }
+
+    memcpy((ascii3_t*) g_renderbuf + g_renderBufIdx, object->data.ascii3, object->len * sizeof(ascii3_t));
+
+    if (object->xpos > EPSILON || object->xpos < -EPSILON ||
+        object->ypos > EPSILON || object->ypos < -EPSILON ||
+        object->zpos > EPSILON || object->zpos < -EPSILON )
+    {
+        for (u32 i = 0; i < object->len; i++) {
+            ((ascii3_t*) g_renderbuf + i)->xpos += object->xpos;
+            ((ascii3_t*) g_renderbuf + i)->ypos += object->ypos;
+            ((ascii3_t*) g_renderbuf + i)->zpos += object->zpos;
+        }
+    }
+
+    g_renderBufIdx += object->len;
+}
+
+// bypass render buf, render 2D object directly
+void renderAsciiObjectDirect2D(asciiobj_t* object)
+{
+    rAssert(object);
+    rAssert(object->data.ascii2);
+    rAssert(object->type == ASCII_OBJ_2D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
+
+    renderBuf2D(object->data.ascii2, object->len, object->xpos, object->ypos);
+}
+
+// bypass render buf, render 3D object directly
+void renderAsciiObjectDirect3D(asciiobj_t* object)
 {
     rAssert(object);
     rAssert(object->data.ascii3);
-    rAssert(object->type == OBJ_TYPE_3D);
-    rAssert(g_asciimode == RENDER_MODE_3D);
+    rAssert(object->type == ASCII_OBJ_3D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
 
-    for (u32 i = 0; i < object->len; i++) {
-        if (object->data.ascii3[i].charID < 32)
-            continue;
-
-        renderCharColor
-        (
-            (i16) roundf(object->data.ascii3[i].xpos + dx),
-            (i16) roundf(object->data.ascii3[i].ypos + dy),
-            0.25f,
-            object->data.ascii3[i].color,
-            object->data.ascii3[i].charID
-        );
-    }
+    renderBuf3D(object->data.ascii3, object->len, object->xpos, object->ypos, object->zpos);
 }
 
-// add 2D ascii char
-char2Idx asciiChar2D(f32 xpos, f32 ypos, u32 color, u32 charID)
-{
-    rAssert(g_asciibuf);
-    rAssert(charID > 32);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-
-    if (g_bufidx >= RENDER_MAX_CHARS) {
-        SDL_Log("Failed to add 2D ASCII char, buffer full");
-        return -1;
-    }
-
-    ascii2_t* tmp = (ascii2_t*) g_asciibuf + g_bufidx;
-
-    tmp->xpos = xpos;
-    tmp->ypos = ypos;
-    tmp->color = color;
-    tmp->charID = charID;
-
-    return g_bufidx++;
-}
-
-// add 3D ascii char
-char3Idx asciiChar3D(f32 xpos, f32 ypos, f32 zpos, u32 color, u64 charID)
-{
-    rAssert(g_asciibuf);
-    rAssert(charID > 32);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-
-    if (g_bufidx >= RENDER_MAX_CHARS) {
-        SDL_Log("Failed to add 3D ASCII char, buffer full");
-        return -1;
-    }
-
-    ascii3_t* tmp = (ascii3_t*) g_asciibuf + g_bufidx;
-
-    tmp->xpos = xpos;
-    tmp->ypos = ypos;
-    tmp->zpos = zpos;
-    tmp->color = color;
-    tmp->charID = charID;
-
-    return g_bufidx++;
-}
-
-// add 2D ascii object, default to white if colors is null
+// create 2D ascii object
 asciiobj_t* asciiObject2D(const vec2f_t* positions, const u32* colors, const u32* chars, u64 len)
 {
     rAssert(chars);
     rAssert(positions);
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
 
-    asciiobj_t* tmp = getAsciiObj();
+    asciiobj_t* object = getAsciiObj(ASCII_OBJ_2D, len);
 
-    if (!tmp)
+    if (!object)
         return NULL;
 
-    tmp->len = len;
-    tmp->type = OBJ_TYPE_2D;
-    tmp->paged = getAscii2Mem(&tmp->data.ascii2, len);
-
-    ascii2_t* ch;
+    ascii2_t* chr;
 
     for (u32 i = 0; i < len; i++) {
-        ch = tmp->data.ascii2 + i;
+        chr = object->data.ascii2 + i;
 
-        ch->xpos = positions[i].x;
-        ch->ypos = positions[i].y;
-        ch->charID = chars[i];
+        chr->xpos = positions[i].x;
+        chr->ypos = positions[i].y;
+        chr->charID = chars[i];
+        chr->visible = 1;
 
-        rAssert(ch->charID > 32);
+        rAssert(chr->charID > 31);
 
         if (colors)
-            ch->color = colors[i];
+            chr->color = colors[i];
         else
-            ch->color = COLOR_WHITE;
+            chr->color = COLOR_WHITE;
     }
 
-    return tmp;
+    return object;
 }
 
-// add 3D ascii object, default to white if colors is null
+// create 3D ascii object
 asciiobj_t* asciiObject3D(const vec3f_t* positions, const u32* colors, const u32* chars, u64 len)
 {
     rAssert(chars);
     rAssert(positions);
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
 
-    asciiobj_t* tmp = getAsciiObj();
+    asciiobj_t* object = getAsciiObj(ASCII_OBJ_3D, len);
 
-    if (!tmp)
+    if (!object)
         return NULL;
 
-    tmp->len = len;
-    tmp->type = OBJ_TYPE_3D;
-    tmp->paged = getAscii3Mem(&tmp->data.ascii3, len);
-
-    ascii3_t* ch;
+    ascii3_t* chr;
 
     for (u32 i = 0; i < len; i++) {
-        ch = tmp->data.ascii3 + i;
+        chr = object->data.ascii3 + i;
 
-        ch->xpos = positions[i].x;
-        ch->ypos = positions[i].y;
-        ch->zpos = positions[i].z;
-        ch->charID =  chars[i];
+        chr->xpos = positions[i].x;
+        chr->ypos = positions[i].y;
+        chr->zpos = positions[i].z;
+        chr->charID = chars[i];
+        chr->visible = 1;
 
-        rAssert(ch->charID > 32);
+        rAssert(chr->charID > 31);
 
         if (colors)
-            ch->color = colors[i];
+            chr->color = colors[i];
         else
-            ch->color = COLOR_WHITE;
+            chr->color = COLOR_WHITE;
     }
 
-    return tmp;
+    return object;
 }
 
-// move 2D ascii char
-void moveAsciiChar2D(char2Idx idx, f32 dx, f32 dy)
+// create 2D ascii object
+asciiobj_t* asciiObject2DIStruct(const ascii2info_t* info, u64 len)
 {
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-    rAssert(idx >= 0 && idx < RENDER_MAX_CHARS);
+    rAssert(info);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
 
-    ((ascii2_t*) g_asciibuf)[idx].xpos += dx;
-    ((ascii2_t*) g_asciibuf)[idx].ypos += dy;
-}
+    asciiobj_t* object = getAsciiObj(ASCII_OBJ_2D, len);
 
-// move 3D ascii char
-void moveAsciiChar3D(char3Idx idx, f32 dx, f32 dy, f32 dz)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-    rAssert(idx >= 0 && idx < RENDER_MAX_CHARS);
+    if (!object)
+        return NULL;
 
-    ((ascii3_t*) g_asciibuf)[idx].xpos += dx;
-    ((ascii3_t*) g_asciibuf)[idx].ypos += dy;
-    ((ascii3_t*) g_asciibuf)[idx].zpos += dz;
-}
+    ascii2_t* chr;
 
-// move 2D ascii object
-void moveAsciiObject2D(asciiobj_t* object, f32 dx, f32 dy)
-{
-    rAssert(object);
-    rAssert(object->data.ascii2);
-    rAssert(object->type == OBJ_TYPE_2D);
-    rAssert(g_asciimode == RENDER_MODE_2D);
+    for (u32 i = 0; i < len; i++) {
+        chr = object->data.ascii2 + i;
 
-    for (u32 i = 0; i < object->len; i++) {
-        object->data.ascii2[i].xpos += dx;
-        object->data.ascii2[i].ypos += dy;
+        chr->xpos = info[i].pos.x;
+        chr->ypos = info[i].pos.y;
+        chr->color = info[i].color;
+        chr->charID = info[i].charID;
+        chr->visible = 1;
+
+        rAssert(chr->charID > 31);
     }
+
+    return object;
 }
 
-// move 3D ascii object
-void moveAsciiObject3D(asciiobj_t* object, f32 dx, f32 dy, f32 dz)
+// create 3D ascii object
+asciiobj_t* asciiObject3DIStruct(const ascii3info_t* info, u64 len)
 {
-    rAssert(object);
-    rAssert(object->data.ascii3);
-    rAssert(object->type == OBJ_TYPE_3D);
-    rAssert(g_asciimode == RENDER_MODE_3D);
+    rAssert(info);
+    rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
 
-    for (u32 i = 0; i < object->len; i++) {
-        object->data.ascii3[i].xpos += dx;
-        object->data.ascii3[i].ypos += dy;
-        object->data.ascii3[i].zpos += dz;
+    asciiobj_t* object = getAsciiObj(ASCII_OBJ_3D, len);
+
+    if (!object)
+        return NULL;
+
+    ascii3_t* chr;
+
+    for (u32 i = 0; i < len; i++) {
+        chr = object->data.ascii3 + i;
+
+        chr->xpos = info[i].pos.x;
+        chr->ypos = info[i].pos.y;
+        chr->zpos = info[i].pos.z;
+        chr->color = info[i].color;
+        chr->charID = info[i].charID;
+        chr->visible = 1;
+
+        rAssert(chr->charID > 31);
     }
+
+    return object;
 }
 
-// set position of 2D ascii object
-void setPosAsciiObject2D(asciiobj_t* object, vec2f_t* local, f32 xglobal, f32 yglobal)
+// render 2D char buf to screen
+void renderBuf2D(const ascii2_t* buf, u64 len, f32 dx, f32 dy)
 {
-    rAssert(object);
-    rAssert(object->data.ascii2);
-    rAssert(object->type == OBJ_TYPE_2D);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-
-    for (u32 i = 0; i < object->len; i++) {
-        object->data.ascii2[i].xpos = xglobal + local[i].x;
-        object->data.ascii2[i].ypos = yglobal + local[i].y;
-    }
-}
-
-// set position of 3D ascii object
-void setPosAsciiObject3D(asciiobj_t* object, vec3f_t* local, f32 xglobal, f32 yglobal, f32 zglobal)
-{
-    rAssert(object);
-    rAssert(object->data.ascii3);
-    rAssert(object->type == OBJ_TYPE_3D);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-
-    for (u32 i = 0; i < object->len; i++) {
-        object->data.ascii3[i].xpos = xglobal + local[i].x;
-        object->data.ascii3[i].ypos = yglobal + local[i].y;
-        object->data.ascii3[i].zpos = zglobal + local[i].z;
-    }
-}
-
-// change color of 2D ascii char
-void changeAsciiCharColor2D(char2Idx idx, u32 color)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-    rAssert(idx >= 0 && idx < RENDER_MAX_CHARS);
-
-    ((ascii2_t*) g_asciibuf)[idx].color = color;
-}
-
-// change color of 3D ascii char
-void changeAsciiCharColor3D(char3Idx idx, u32 color)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-    rAssert(idx >= 0 && idx < RENDER_MAX_CHARS);
-
-    ((ascii3_t*) g_asciibuf)[idx].color = color;
-}
-
-// remove 2D char at idx
-void removeAsciiChar2D(char2Idx idx)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-    rAssert(idx >= 0);
-    rAssert(idx < RENDER_MAX_CHARS);
-
-    memset((ascii2_t*) g_asciibuf + idx, 0, sizeof(ascii2_t));
-
-    if (!g_memfragmented && idx + 1 == g_bufidx)
-        g_bufidx--;
-    else
-        g_memfragmented = 1;
-
-    rWarning(g_memfragmented || idx < g_bufidx);
-}
-
-// remove 3D char at idx
-void removeAsciiChar3D(char3Idx idx)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-    rAssert(idx >= 0);
-    rAssert(idx < RENDER_MAX_CHARS);
-
-    memset((ascii3_t*) g_asciibuf + idx, 0, sizeof(ascii3_t));
-
-    if (!g_memfragmented && idx + 1 == g_bufidx)
-        g_bufidx--;
-    else
-        g_memfragmented = 1;
-
-    rWarning(g_memfragmented || idx < g_bufidx);
-}
-
-// remove multiple 2D chars starting at startIdx
-void removeAsciiChars2D(ascii2_t* chars, u32 numChars)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-
-    // make sure pointer is inside asciibuf
-    rAssert(chars >= (ascii2_t*) g_asciibuf && chars < (ascii2_t*) g_asciibuf + RENDER_MAX_CHARS);
-
-    memset(chars, 0, numChars * sizeof(ascii2_t));
-
-    if (!g_memfragmented && chars + numChars + 1 == (ascii2_t*) g_asciibuf + g_bufidx)
-        g_bufidx -= numChars;
-    else
-        g_memfragmented = 1;
-
-    rWarning(g_memfragmented || chars + numChars < (ascii2_t*) g_asciibuf + g_bufidx);
-}
-
-// remove multiple 3D chars starting at chars
-void removeAsciiChars3D(ascii3_t* chars, u32 numChars)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-
-    // make sure pointer is inside asciibuf
-    rAssert(chars >= (ascii3_t*) g_asciibuf && chars < (ascii3_t*) g_asciibuf + RENDER_MAX_CHARS);
-
-    memset(chars, 0, numChars * sizeof(ascii3_t));
-
-    if (!g_memfragmented && chars + numChars + 1 == (ascii3_t*) g_asciibuf + g_bufidx)
-        g_bufidx -= numChars;
-    else
-        g_memfragmented;
-
-    rWarning(g_memfragmented || chars + numChars < (ascii3_t*) g_asciibuf + g_bufidx);
-}
-
-// remove ascii object
-void removeAsciiObject(asciiobj_t* object)
-{
-    rAssert(object);
-    rAssert(object->len);
-    rAssert(object->type == OBJ_TYPE_2D || object->type == OBJ_TYPE_3D);
+    rAssert(buf);
     
-    // make sure ptr is inside object buf
-    rAssert(object >= g_asciiobjects && object < g_asciiobjects + RENDER_MAX_OBJECTS);
-
-    if (object->paged) {
-        removePage(object->data.ascii2);
-        return;
-    }
-
-    if (object->type == OBJ_TYPE_2D)
-        removeAsciiChars2D(object->data.ascii2, object->len);
-    else
-        removeAsciiChars3D(object->data.ascii3, object->len);
-
-    memset(object, 0, sizeof(asciiobj_t));
-
-    if (!g_objfragmented && object + 1 == g_asciiobjects + g_objectsidx)
-        g_objectsidx--;
-    else
-        g_objfragmented;
-}
-
-//
-//  Local functions
-//
-
-// find free memory for object, return null on failure
-asciiobj_t* getAsciiObj(void)
-{
-    if (!g_objfragmented) {
-        if (g_objectsidx >= RENDER_MAX_OBJECTS)
-            goto fail;
-
-        return g_asciiobjects + g_objectsidx++;
-    }
-
-    for (u32 i = 0; i < RENDER_MAX_OBJECTS; i++) {
-        if (!g_asciiobjects[i].len)
-            return g_asciiobjects + i;
-    }
-
-    fail:
-
-    SDL_Log("Failed to add ASCII object, object buffer full");
-    return NULL;
-}
-
-// TODO increase bufidx?
-// find memory for 2D ascii object, page if necessary
-bool getAscii2Mem(ascii2_t** dst, u64 len)
-{
-    rAssert(g_asciimode == RENDER_MODE_2D);
-
-    u16 count = 0;
-
-    for (u16 i = 0; i < RENDER_MAX_CHARS; i++) {
-        if (!((ascii2_t*) g_asciibuf + i)->charID)
-            count++;
-        else
-            count = 0;
-
-        if (count >= len) {
-            *dst = (ascii2_t*) g_asciibuf + i + 1 - len;
-            
-            //
-            g_bufidx += len;
-            //
-
-            return 0;
-        }
-    }
-
-    // main buf out of memory, page
-    ascii2_t* ptr = (ascii2_t*) memAlloc(len * sizeof(ascii2_t));
-
-    addPage(ptr, len, OBJ_TYPE_2D);
-
-    *dst = ptr;
-
-    SDL_Log("ASCII buffer full, adding memory page for 2D ASCII object, size %lld", len);
-    return 1;
-}
-
-// TODO increase bufidx?
-// find memory for 3D ascii object, page if necessary
-bool getAscii3Mem(ascii3_t** dst, u64 len)
-{
-    rAssert(g_asciimode == RENDER_MODE_3D);
-
-    u16 count = 0;
-
-    for (u16 i = 0; i < g_bufidx; i++) {
-        if (!((ascii3_t*) g_asciibuf + i)->charID)
-            count++;
-        else
-            count = 0;
-
-        if (count >= len) {
-            *dst = (ascii3_t*) g_asciibuf + i + 1 - len;
-            return 0;
-        }
-    }
-
-    // main buf out of memory, page
-    ascii3_t* ptr = (ascii3_t*) memAlloc(len * sizeof(ascii3_t));
-
-    addPage(ptr, len, OBJ_TYPE_3D);
-
-    *dst = ptr;
-
-    SDL_Log("ASCII buffer full, adding memory page for 3D ASCII object, size %lld", len);
-    return 1;
-}
-
-// find free index for 2D char, return -1 on failure
-char2Idx getChar2(void)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_2D);
-
-    if (!g_memfragmented) {
-        if (g_bufidx >= RENDER_MAX_CHARS)
-            goto fail;
-
-        return g_bufidx++;
-    }
-
-    for (u32 i = 0; i < RENDER_MAX_CHARS; i++) {
-        if (!((ascii2_t*) g_asciibuf + i)->charID)
-            return i;
-    }
-
-    fail:
-
-    // do not page for single char
-    SDL_Log("Failed to add 2D ASCII char, buffer full");
-    return -1;
-}
-
-// find free index for 3D char, return -1 on failure
-char3Idx getChar3(void)
-{
-    rAssert(g_asciibuf);
-    rAssert(g_asciimode == RENDER_MODE_3D);
-
-    if (!g_memfragmented) {
-        if (g_bufidx >= RENDER_MAX_CHARS)
-            goto fail;
-
-        return g_bufidx++;
-    }
-
-    for (u32 i = 0; i < RENDER_MAX_CHARS; i++) {
-        if (!((ascii3_t*) g_asciibuf + i)->charID)
-            return i;
-    }
-
-    fail:
-
-    // do not page for single char
-    SDL_Log("Failed to add 3D ASCII char, buffer full");
-    return -1;
-}
-
-// render chars stored in paged memory
-void renderPaged(void)
-{
-    if (!g_pagedmem)
-        return;
-
-    for (pageinfo_t* i = g_pagedmem; i; i = i->next) {
-        if (i->type != g_asciimode)
+    for (u32 i = 0; i < len; i++) {
+        if (!buf[i].visible || buf[i].charID < 32)
             continue;
 
-        if (g_asciimode == RENDER_MODE_2D)
-        {
-            for (u32 k = 0; k < i->len; k++) {
-                if (((ascii2_t*) i->ptr)[k].charID < 32)
-                    continue;
-
-                renderCharColor
-                (
-                    (i16) roundf(((ascii2_t*) i->ptr)[k].xpos),
-                    (i16) roundf(((ascii2_t*) i->ptr)[k].ypos),
-                    0.25f,
-                    ((ascii2_t*) i->ptr)[k].color,
-                    ((ascii2_t*) i->ptr)[k].charID
-                );
-            }
-        }
-        else
-        {
-            for (u32 k = 0; k < i->len; k++) {
-                if (((ascii3_t*) i->ptr)[k].charID < 32)
-                    continue;
-
-                renderCharColor
-                (
-                    (i16) roundf(((ascii3_t*) i->ptr)[k].xpos),
-                    (i16) roundf(((ascii3_t*) i->ptr)[k].ypos),
-                    0.25f,
-                    ((ascii3_t*) i->ptr)[k].color,
-                    ((ascii3_t*) i->ptr)[k].charID
-                );
-            }
-        }
+        renderCharColor
+        (
+            (i16) roundf(buf[i].xpos + dx),
+            (i16) roundf(buf[i].ypos + dy),
+            ASCII_RENDER_SCALE,
+            buf[i].color,
+            buf[i].charID
+        );
     }
 }
 
-// add bookkeeping info about paged memory
-void addPage(void* ptr, u32 len, u32 type)
+// render 3D char buf to screen
+void renderBuf3D(const ascii3_t* buf, u32 len, f32 dx, f32 dy, f32 dz)
 {
-    pageinfo_t* tmp = g_pagedmem;
+    rAssert(buf);
 
-    if (!g_pagedmem) {
-        g_pagedmem = (pageinfo_t*) memAlloc(sizeof(pageinfo_t));
-        tmp = g_pagedmem;
-    } else {
-        tmp = g_pagedmem;
+    for (u32 i = 0; i < len; i++) {
+        if (!buf[i].visible || buf[i].charID < 32)
+            continue;
 
-        while (tmp->next)
-            tmp = tmp->next;
-
-        rAssert(!tmp->next);
-
-        tmp->next = (pageinfo_t*) memAlloc(sizeof(pageinfo_t));
-
-        tmp = tmp->next;
+        renderCharColor
+        (
+            (i16) roundf(buf[i].xpos + dx),
+            (i16) roundf(buf[i].ypos + dy),
+            ASCII_RENDER_SCALE,
+            buf[i].color,
+            buf[i].charID
+        );
     }
+}
+ 
+// init ascii object in object buf
+asciiobj_t* getAsciiObj(u32 type, u32 len)
+{
+    rAssert(len);
+    rAssert(type == ASCII_OBJ_2D || type == ASCII_OBJ_3D);
+
+    if (g_objidx >= g_asciiObjBuf + ASCII_OBJ_BUF_SIZE) {
+        SDL_Log("Failed to add ASCII object, object buffer full");
+        return NULL;
+    }
+
+    g_objidx->type = type;
+    g_objidx->len = len;
+    g_objidx->visible = 1;
+
+    g_objidx->xpos = 0.0f;
+    g_objidx->ypos = 0.0f;
+    g_objidx->zpos = 0.0f;
+
+    g_objidx->paged = getAsciiObjMem((void**) &g_objidx->data, type, len);
+
+    return g_objidx++;
+}
+
+// find memory for ascii object
+bool getAsciiObjMem(void** dst, u32 type, u32 len)
+{ 
+    u32 count = 0;
+
+    if (type == ASCII_OBJ_2D)
+    {
+        rAssert(g_asciistate == ASCII_RENDER_MODE_2D);
+
+        for (u32 i = 0; i < ASCII_CHAR_BUF_SIZE; i++) {
+            if (!((ascii2_t*) g_charbuf + i)->charID)
+                count++;
+            else
+                count = 0;
+
+            if (count >= len) {
+                *(ascii2_t**) dst = (ascii2_t*) g_charbuf + i + 1 - len;
+
+                g_charBufIdx += len;
+
+                return 0;
+            }
+        }
+
+        ascii2_t* ptr = (ascii2_t*) memAlloc(len * sizeof(ascii2_t));
+
+        memPage(ptr, ASCII_OBJ_2D, len);
+
+        *(ascii2_t**) dst = ptr;
+
+        return 1;
+    }
+    else
+    {
+        rAssert(g_asciistate == ASCII_RENDER_MODE_3D);
+
+        for (u32 i = 0; i < ASCII_CHAR_BUF_SIZE; i++) {
+            if (!((ascii3_t*) g_charbuf + i)->charID)
+                count++;
+            else
+                count = 0;
+
+            if (count >= len) {
+                *(ascii3_t**) dst = (ascii3_t*) g_charbuf + i + 1 - len;
+
+                g_charBufIdx += len;
+
+                return 0;
+            }
+        }
+
+        ascii3_t* ptr = (ascii3_t*) memAlloc(len * sizeof(ascii3_t));
+
+        memPage(ptr, ASCII_OBJ_3D, len);
+
+        *(ascii3_t**) dst = ptr;
+
+        return 1;
+    }
+}
+
+// add memory page
+void memPage(void* ptr, u32 type, u32 len)
+{
+    if (!g_pagedmem)
+        g_pagedmem = (pageinfo_t*) memAlloc(sizeof(pageinfo_t));
+
+    pageinfo_t* tmp = g_pagedmem;
 
     rAssert(tmp);
 
-    tmp->ptr = ptr;
-    tmp->len = len;
-    tmp->type = type;
-    tmp->next = NULL;
+    while (tmp->next)
+        tmp = tmp->next;
+
+    tmp->next = (pageinfo_t*) memAlloc(sizeof(pageinfo_t));
+
+    rAssert(tmp->next);
+
+    tmp->next->ptr = ptr;
+    tmp->next->len = len;
+    tmp->next->type = type;
+    tmp->next->next = NULL;
+
+    SDL_Log("ASCII: added memory page");
 }
 
-// free single memory page
-void removePage(void* ptr)
+// remove memory page
+void removeMemPage(void* ptr)
 {
     rAssert(ptr);
     rAssert(g_pagedmem);
@@ -795,7 +497,7 @@ void removePage(void* ptr)
 
         g_pagedmem = tmp;
 
-        SDL_Log("Removed ASCII memory page");
+        SDL_Log("ASCII: removed memory page");
 
         return;
     }
@@ -809,19 +511,19 @@ void removePage(void* ptr)
 
             i->next = tmp;
 
-            SDL_Log("Removed ASCII memory page");
+            SDL_Log("ASCII: removed memory page");
 
             return;
         }
     }
 }
 
-// free all paged memory
-void freePaged(void)
+// free all memory pages
+void freePages(void)
 {
     if (!g_pagedmem)
         return;
-    
+
     pageinfo_t* tmp = NULL;
 
     for (pageinfo_t* i = g_pagedmem; i; i = i->next) {

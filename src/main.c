@@ -184,7 +184,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
     initRenderer();
 
-    initAscii(RENDER_MODE_2D);
+    initAscii(ASCII_RENDER_MODE_2D);
 
     initWorld();
 
@@ -262,5 +262,5 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
     cleanupRenderer();
-    asciiCleanup();
+    cleanupAscii();
 }

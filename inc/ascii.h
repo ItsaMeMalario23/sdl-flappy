@@ -6,16 +6,21 @@
 //
 //  Constants
 //
-#define RENDER_MAX_CHARS    256
-#define RENDER_MAX_OBJECTS  64
+#define ASCII_RENDER_BUF_SIZE   16384   // bytes
+#define ASCII_CHAR_BUF_SIZE     8192    // bytes
+#define ASCII_OBJ_BUF_SIZE      32      // asciiobj elements
 
-#define RENDER_MODE_2D      0
-#define RENDER_MODE_3D      1
-#define RENDER_MODE_UNINIT  2
+#define ASCII_MAX_2D_CHARS      ((u16) (ASCII_RENDER_BUF_SIZE / sizeof(ascii2_t)))
+#define ASCII_MAX_3D_CHARS      ((u16) (ASCII_RENDER_BUF_SIZE / sizeof(ascii3_t)))
 
-// ascii object data types
-#define OBJ_TYPE_2D         RENDER_MODE_2D
-#define OBJ_TYPE_3D         RENDER_MODE_3D
+#define ASCII_RENDER_MODE_2D    0
+#define ASCII_RENDER_MODE_3D    1
+#define ASCII_RENDER_UNINIT     2
+
+#define ASCII_RENDER_SCALE      (0.25f)
+
+#define ASCII_OBJ_2D            ASCII_RENDER_MODE_2D
+#define ASCII_OBJ_3D            ASCII_RENDER_MODE_3D
 
 //
 //  Typedefs
@@ -26,10 +31,11 @@ typedef struct pageinfo_s pageinfo_t;
 
 // ascii char in 2D space
 typedef struct ascii2_s {
-    f32 xpos;
-    f32 ypos;
+    f32 xpos;       // local x position of char
+    f32 ypos;       // local y position of char
     u32 color;
-    u32 charID;
+    u16 visible;
+    u16 charID;
 } ascii2_t;
 
 // ascii char in 3D space
@@ -38,14 +44,34 @@ typedef struct ascii3_s {
     f32 ypos;
     f32 zpos;
     u32 color;
-    u64 charID;
+    u32 visible;    // each char has its own visibility flag so renderbuf can be processed directly
+    u32 charID;
 } ascii3_t;
+
+// info needed to allocate 2D char
+typedef struct ascii2info_s {
+    u32     charID;
+    u32     color;
+    vec2f_t pos;
+} ascii2info_t;
+
+// info need to allocate 3D char
+typedef struct ascii3info_s {
+    u32     charID;
+    u32     color;
+    vec3f_t pos;
+} ascii3info_t;
 
 // struct to group chars into objects
 typedef struct asciiobj_s {
     u32 len;
-    u16 type;
+    u32 type;
+    u16 visible;
     u16 paged;
+
+    f32 xpos;       // global x offset of object
+    f32 ypos;       // global y offset of object
+    f32 zpos;       // global z offset of object (only for 3D)
 
     union {
         ascii2_t* ascii2;
@@ -65,6 +91,35 @@ struct pageinfo_s {
 //
 //  Public funtions
 //
+void initAscii(u32 renderMode);
+void cleanupAscii(void);
+void asciiResetAll(void);
+void asciiChangeMode(u32 renderMode);
+
+void asciiRenderAll(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf);
+void asciiRender2D(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf);
+void asciiRender3D(u32 backgroundColor, u16 clearScr, u16 preserveRenderBuf);
+
+void renderAsciiObject2D(asciiobj_t* object);
+void renderAsciiObject3D(asciiobj_t* object);
+void renderAsciiObjectDirect2D(asciiobj_t* object);
+void renderAsciiObjectDirect3D(asciiobj_t* object);
+
+asciiobj_t* asciiObject2D(const vec2f_t* positions, const u32* colors, const u32* chars, u64 len);
+asciiobj_t* asciiObject3D(const vec3f_t* positions, const u32* colors, const u32* chars, u64 len);
+asciiobj_t* asciiObject2DIStruct(const ascii2info_t* info, u64 len);
+asciiobj_t* asciiObject3DIStruct(const ascii3info_t* info, u64 len);
+
+asciiobj_t* getAsciiObj(u32 type, u32 len);
+bool getAsciiObjMem(void** dst, u32 type, u32 len);
+void renderBuf2D(const ascii2_t* buf, u64 len, f32 dx, f32 dy);
+void renderBuf3D(const ascii3_t* buf, u32 len, f32 dx, f32 dy, f32 dz);
+
+void memPage(void* ptr, u32 type, u32 len);
+void removeMemPage(void* ptr);
+void freePages(void);
+
+/*
 void initAscii(u32 renderMode);
 void asciiCleanup(void);
 void asciiResetAll(void);
@@ -109,5 +164,5 @@ void        renderPaged(void);
 void        addPage(void* ptr, u32 len, u32 type);
 void        removePage(void* ptr);
 void        freePaged(void);
-
+*/
 #endif

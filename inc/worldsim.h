@@ -47,10 +47,6 @@ void toggleGodMode(void);
 void initWorld(void);
 u32  updateWorld(u64 dt);
 
-void handleAnimation(u64 dt);
-void setUpdraftAnimation(void);
-void resetUpdraftAnimation(void);
-
 void renderClouds(u64 dt);
 void renderPipes(void);
 void renderBird(sprite_t* bird);
@@ -60,5 +56,6 @@ void scrollScreen(f32 dx);
 void randomizePair(pipepair_t* pair, bool resetXPos);
 bool checkCollision(sprite_t* bird);
 void handleBirdVerticalSpeed(sprite_t* bird, u64 dt, bool updraft);
+void handleAnimation(u64 dt);
 
 #endif
