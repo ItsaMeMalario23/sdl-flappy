@@ -4,7 +4,7 @@
 #include <main.h>
 #include <ascii.h>
 
-#define O_ASCII_BIRD_LEN        16
+#define O_ASCII_BIRD_LEN        17
 #define O_PIPE_HEAD_TOP_LEN     37
 #define O_PIPE_HEAD_BOT_LEN     39
 #define O_PIPE_SECTION_LEN      9

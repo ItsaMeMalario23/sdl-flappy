@@ -55,7 +55,7 @@ typedef struct ascii2info_s {
     vec2f_t pos;
 } ascii2info_t;
 
-// info need to allocate 3D char
+// info needed to allocate 3D char
 typedef struct ascii3info_s {
     u32     charID;
     u32     color;

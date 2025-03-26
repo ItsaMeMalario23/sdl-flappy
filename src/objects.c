@@ -8,11 +8,12 @@
 #define MGREEN  0x0d700000
 #define DGREEN  0x00300000
 
-const ascii2info_t o_asciiBird[16] = {
-    {'\\', WHITE, {  2, 33}}, {'-', WHITE, {14, -5}}, {'-', WHITE, {31, -5}}, {'\\', WHITE, {47,  2}},
+const ascii2info_t o_asciiBird[17] = {
+    {'\\', WHITE, {  2, 33}}, {'-', WHITE, {17, -5}}, {'-', WHITE, {31, -5}}, {'\\', WHITE, {47,  2}},
     { '(', WHITE, {-12,  9}}, {'@',  GOLD, { 3, 10}}, {'O', WHITE, {32,  6}}, { '>',   RED, {55, 18}},
     {'\'', BLACK, { 33, 10}}, {'_', WHITE, {18, 32}}, {'_', WHITE, {33, 32}}, { '/', WHITE, {49, 32}},
-    { '>',   RED, { 46, 18}}, {')', WHITE, {17, 11}}, {'B',  GOLD, {17, 28}}, { 'D',  GOLD, {34, 28}}
+    { '>',   RED, { 46, 18}}, {')', WHITE, {17, 11}}, {'B',  GOLD, {17, 28}}, { 'D',  GOLD, {34, 28}},
+    { '.', WHITE, {  9, -9}},
 };
 
 const ascii2info_t o_asciiPipeHeadTop[37] = {
